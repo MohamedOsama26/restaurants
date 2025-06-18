@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema({
             notes: String
         }
     ],
-    role: { type: String, enum: ['admin', 'owner', 'user'], default: 'user' },
+    userType: { type: String, enum: ['admin', 'owner', 'staff', 'customer'], default: 'customer' },
     fcmToken: {
         type: String,
         default: null,

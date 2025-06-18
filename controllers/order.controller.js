@@ -1,8 +1,5 @@
 const Order = require('../models/Order');
-const OrderItem = require('../models/OrderItem');
 const Cart = require('../models/Cart');
-const Meal = require('../models/Meal');
-const User = require('../models/User');
 
 const changeOrderStatus = async (req, res) => {
     try {
@@ -119,6 +116,10 @@ const createNewOrder = async (req, res) => {
     }
 };
 
+const deleteOrder = async (req, res) => {};
+
+const editOrder = async (req, res) => {};
+
 module.exports = {
     changeOrderStatus,
     viewSpecificOrder,
@@ -126,4 +127,6 @@ module.exports = {
     getOrderDetails,
     getMyOrders,
     createNewOrder,
+    deleteOrder,
+    editOrder,
 };

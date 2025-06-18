@@ -62,7 +62,10 @@ const updateUserProfile = async (req, res) => {
 // User - Get Logged In Profile
 const getLoggedInUserProfile = async (req, res) => {
     try {
-        // console.log(req);
+        console.log('--------------');
+        console.log(req.user);
+        console.log(req);
+        console.log('--------------');
         const user = await User.findById(req.user.id).select("-password");
         console.log(user);
         res.status(200).json(user);
@@ -71,10 +74,15 @@ const getLoggedInUserProfile = async (req, res) => {
     }
 };
 
+const createUser = async (req, res) => {
+
+};
+
 module.exports = {
     updateFcmToken,
     updateAdminProfile,
     getLoggedInAdminProfile,
     updateUserProfile,
     getLoggedInUserProfile,
+    createUser
 };

@@ -1,5 +1,4 @@
 const User = require('../models/User');
-const Admin = require('../models/Admin');
 const OtpToken = require('../models/OtpToken');
 const bcrypt = require('bcryptjs');
 const {validateAuthField, isValidMobile, isValidEmail, isEmailRegistered, isMobileRegistered} = require("../utils/validators");
@@ -45,7 +44,6 @@ const login = async (req, res) => {
         const refreshToken = generateRefreshToken(user.user);
 
         await user.user.updateOne(
-        {   _id: user.user.id   },
         {
             $push:{
                 refreshTokens: {
@@ -99,8 +97,6 @@ const register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        const accessToken = generateAccessToken({ id: null }); // Placeholder, real value after creation
-        const refreshToken = generateRefreshToken({ id: null });
 
         const newUser = await User.create({
             name,
@@ -110,19 +106,21 @@ const register = async (req, res) => {
             addresses,
             image,
             dob,
-            refreshTokens: [{
-                userId: null, // Will update below
-                token: refreshToken,
-                createdAt: new Date(),
-                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-            }]
+            refreshTokens: [],
         });
 
-        // Update userId in refreshTokens
-        await User.updateOne(
-            { _id: newUser._id },
-            { $set: { 'refreshTokens.0.userId': newUser._id } }
-        );
+        const accessToken = generateAccessToken({ id: newUser.id }); // Placeholder, real value after creation
+        const refreshToken = generateRefreshToken({ id: newUser.id });
+
+
+        newUser.refreshTokens.push({
+            userId: newUser._id,
+            token: refreshToken,
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        });
+
+        await newUser.save();
 
         return res.status(201).json({
             msg: 'User created successfully',
@@ -153,7 +151,15 @@ const register = async (req, res) => {
 
 //POST /api/auth/refresh
 const refresh = async (req, res) => {
-    const { refreshToken } = req.body;
+
+    const authHeader = req.headers.authorization;
+
+
+    const refreshToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.split(' ')[1]
+        : null;
+
+    console.log(refreshToken);
     if (!refreshToken) return res.status(401).json({ msg: 'No refresh token provided' });
 
     try {
@@ -161,14 +167,15 @@ const refresh = async (req, res) => {
         const user = await User.findById(decoded.id);
         if (!user) return res.status(404).json({ msg: 'User not found' });
 
-        console.log(user.refreshTokens);
+        // console.log(user.refreshTokens);
         //Look for matching token in DB
         const storedToken = user.refreshTokens.find(token => token.token === refreshToken);
-        console.log(storedToken);
+        // console.log(storedToken);
         if(!storedToken) return res.status(400).json({ msg: 'Refresh token not recognized' });
 
+        console.log(Date.now());
         // Check if token is expired
-        if (new Date.now() > storedToken.expiresAt) {
+        if (Date.now() > storedToken.expiresAt) {
             return res.status(400).json({ msg: 'Refresh token expired' });
         }
 
@@ -203,15 +210,34 @@ const requestOtp = async (req, res) => {
 //POST /api/auth/logout
 const logout = async (req, res) => {
 
-    const user = await User.findById(req.user.id);
-    if (!user) {
-        return res.status(404).json({ msg: 'User not found' });
+    const authHeader = req.headers.authorization;
+    const refreshToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.split(' ')[1]
+        : null;
+
+    console.log(refreshToken);
+
+    if (!refreshToken) {
+        return res.status(400).json({ msg: 'No refresh token provided' });
     }
 
-    user.refreshToken = null;
-    await user.save();
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        const user = await User.findById(decoded.id);
 
-    return res.status(200).json({msg: 'Logged out successfully'});
+        if (!user) {
+            return res.status(404).json({ msg: 'User not found' });
+        }
+
+        // Remove current refresh token only
+        user.refreshTokens = user.refreshTokens.filter(tokenObj => tokenObj.token !== refreshToken);
+        await user.save();
+
+        return res.status(200).json({ msg: 'Logged out successfully from current device' });
+    } catch (error) {
+        console.error(error);
+        return res.status(403).json({ msg: 'Invalid or expired refresh token' });
+    }
 }
 
 //POST /api/auth/verify-login-otp
@@ -307,47 +333,6 @@ const resetPassword = async (req, res) => {
     return res.status(200).json({msg: 'Password reset successfully'});
 };
 
-const adminLogin = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        // 1. Check if admin exists
-        const admin = await Admin.findOne({ email });
-        if (!admin) {
-            return res.status(404).json({ msg: 'Admin not found' });
-        }
-
-        // 2. Validate password
-        const isMatch = await bcrypt.compare(password, admin.password);
-        if (!isMatch) {
-            return res.status(400).json({ msg: 'Invalid credentials' });
-        }
-
-// 3. Generate tokens
-        const accessToken = generateAccessToken(admin, 'admin');
-        const refreshToken = generateRefreshToken(admin, 'admin');
-
-        await admin.updateOne({ refreshToken });
-
-        return res.status(200).json({
-            msg: 'Admin login successful',
-            admin: {
-                id: admin.id,
-                name: admin.name,
-                email: admin.email,
-            },
-            accessToken,
-            refreshToken,
-        });
-    } catch (error) {
-        console.error(error.message);
-        return res.status(500).json({
-            msg: 'Failed to login as admin',
-            error: error.message,
-        });
-    }
-}
-
 
 module.exports = {
     login,
@@ -360,5 +345,4 @@ module.exports = {
     findEmail,
     verifyResetOtp,
     googleLogin,
-    adminLogin,
 }

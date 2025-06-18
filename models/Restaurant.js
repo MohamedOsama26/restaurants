@@ -10,7 +10,12 @@ const restaurantSchema = new mongoose.Schema({
     logo: String,
     image: String,
     address: String,
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);

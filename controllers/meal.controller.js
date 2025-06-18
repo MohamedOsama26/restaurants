@@ -94,10 +94,13 @@ const deleteMeal = async (req, res) => {
     }
 };
 
+const toggleAvailability = async (req, res) => {};
+
 module.exports = {
     getMeals,
     getMeal,
     addMeal,
     updateMeal,
     deleteMeal,
+    toggleAvailability,
 }

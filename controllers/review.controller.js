@@ -123,9 +123,12 @@ const deleteReview = async (req, res) => {
     }
 };
 
+const editReview = async (req, res) => {};
+
 module.exports = {
     addReview,
     getMealReviews,
     viewAllReviews,
     deleteReview,
+    editReview,
 };
